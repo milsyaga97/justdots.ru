@@ -44,10 +44,24 @@ class UserResponse(BaseModel):
     profile: Profile | None
     skills: list[Skill] = []
     rating: Optional[float] = None
+    balance: float = 0.0
     completed_tasks_count: int = 0
+    total_spent: Optional[float] = None
+    total_earned: Optional[float] = None
 
     class Config:
         from_attributes = True
+
+    @model_validator(mode='after')
+    def set_profile_stats(self):
+        if self.profile:
+            if self.user_type == "customer":
+                self.total_spent = self.profile.total_spent if self.profile.total_spent is not None else 0.0
+                self.total_earned = None
+            elif self.user_type == "freelancer":
+                self.total_earned = self.profile.total_earned if self.profile.total_earned is not None else 0.0
+                self.total_spent = None
+        return self
 
 class UserLogin(BaseModel):
     username: str | None = None
@@ -87,3 +101,14 @@ class BanUserRequest(BaseModel):
         if self.duration_days is None and self.until is None:
             raise ValueError("Необходимо указать либо duration_days, либо until")
         return self
+
+class AddBalanceRequest(BaseModel):
+    amount: float
+
+    @validator("amount")
+    def validate_amount(cls, v):
+        if v <= 0:
+            raise ValueError("Сумма пополнения должна быть больше нуля")
+        if v > 1000000:  # Ограничение в 1 миллион
+            raise ValueError("Максимальная сумма пополнения - 1 000 000")
+        return v

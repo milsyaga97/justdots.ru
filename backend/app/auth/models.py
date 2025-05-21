@@ -23,6 +23,7 @@ class User(Base):
     is_banned = Column(sa.Boolean, default=False, nullable=False)
     ban_expires_at = Column(DateTime, nullable=True)
     rating = Column(Float, nullable=True)
+    balance = Column(Float, default=0.0, nullable=False)
     created_at = Column(DateTime, default=func.now())
     profile = relationship("Profile", back_populates="user", uselist=False)
 

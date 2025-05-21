@@ -5,12 +5,14 @@ from ..database import Base
 import enum
 from sqlalchemy.orm import relationship
 
-class TaskStatus(enum.Enum):
+class TaskStatus(str, enum.Enum):
     PENDING_MODERATION = "На рассмотрении модерацией"
     REJECTED_BY_MODERATION = "Отклонена модерацией"
     OPEN = "Открытая"
     IN_PROGRESS = "В процессе"
+    PENDING_REVIEW = "На проверке заказчиком"
     CLOSED = "Закрытая"
+    DISPUTE = "Спор"
 
 class TaskSkillLevel(enum.Enum):
     BASIC = "Менее года"
@@ -51,6 +53,7 @@ class Task(Base):
     )
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     freelancer_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    keeper = Column(Float, default=0.0, nullable=False)
     submitted_at = Column(DateTime(timezone=True), server_default=func.now())
     created_at = Column(DateTime(timezone=True), nullable=True)
     reviews = relationship("Review", back_populates="task")

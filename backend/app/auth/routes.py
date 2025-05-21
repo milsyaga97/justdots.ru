@@ -5,12 +5,13 @@ from sqlalchemy.exc import IntegrityError
 from psycopg.errors import UniqueViolation
 from .models import User, UserType, BlacklistedToken
 from .schemas import UserCreate, UserResponse, UserLogin, Token, ChangeUserRoleRequest1, ChangeUserRoleRequest2, \
-    BanUserRequest
+    BanUserRequest, AddBalanceRequest
 from .dependencies import hash_password, verify_password, create_access_token, create_refresh_token, \
     verify_refresh_token, get_current_user, oauth2_scheme
 from ..database import get_db
 from datetime import datetime
 from ..tasks.models import Task, TaskStatus
+from app.users.models import Profile
 
 router = APIRouter()
 
@@ -48,6 +49,17 @@ async def register_user(user: UserCreate, db: Session = Depends(get_db)):
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
+
+        # Создаем профиль пользователя
+        profile = Profile(
+            user_id=db_user.id,
+            total_spent=0.0,
+            total_earned=0.0
+        )
+        db.add(profile)
+        db.commit()
+        db.refresh(db_user)
+
     except IntegrityError as e:
         db.rollback()
         if isinstance(e.orig, UniqueViolation):
@@ -70,7 +82,9 @@ async def register_user(user: UserCreate, db: Session = Depends(get_db)):
         created_at=db_user.created_at.isoformat() if db_user.created_at else None,
         profile=db_user.profile,
         skills=db_user.skills,
-        completed_tasks_count=0
+        completed_tasks_count=0,
+        rating=None,
+        balance=0.0
     )
 
 
@@ -205,6 +219,10 @@ async def get_current_user_info(current_user: User = Depends(get_current_user), 
     profile_data = current_user.profile
     if profile_data:
         profile_data.portfolio = current_user.portfolio if current_user.portfolio else []
+        if profile_data.total_spent is None:
+            profile_data.total_spent = 0.0
+        if profile_data.total_earned is None:
+            profile_data.total_earned = 0.0
 
     return UserResponse(
         id=current_user.id,
@@ -220,7 +238,8 @@ async def get_current_user_info(current_user: User = Depends(get_current_user), 
         profile=profile_data,
         skills=current_user.skills,
         completed_tasks_count=completed_tasks_count,
-        rating=current_user.rating
+        rating=current_user.rating,
+        balance=current_user.balance
     )
 
 
@@ -268,7 +287,8 @@ async def moderate_change_role(
         "profile": target_user.profile if target_user.profile else None,
         "skills": target_user.skills if hasattr(target_user, "skills") else [],
         "rating": target_user.rating,
-        "completed_tasks_count": getattr(target_user, "completed_tasks_count", 0)
+        "completed_tasks_count": getattr(target_user, "completed_tasks_count", 0),
+        "balance": target_user.balance
     })
 
 
@@ -303,7 +323,8 @@ async def admin_change_role(
         "profile": target_user.profile if target_user.profile else None,
         "skills": target_user.skills if hasattr(target_user, "skills") else [],
         "rating": target_user.rating,
-        "completed_tasks_count": getattr(target_user, "completed_tasks_count", 0)
+        "completed_tasks_count": getattr(target_user, "completed_tasks_count", 0),
+        "balance": target_user.balance
     })
 
 
@@ -338,3 +359,51 @@ async def ban_user(
     db.refresh(target_user)
 
     return {"message": f"Пользователь {target_user.username} заблокирован до {ban_expires_at.isoformat()}"}
+
+
+@router.post("/balance/add", response_model=UserResponse)
+async def add_balance(
+    balance_data: AddBalanceRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Пополнение баланса пользователя.
+    В реальном приложении здесь была бы интеграция с платежной системой.
+    """
+    current_user.balance += balance_data.amount
+    db.commit()
+    db.refresh(current_user)
+
+    if current_user.user_type == UserType.CUSTOMER:
+        completed_tasks_count = db.query(Task).filter(
+            Task.owner_id == current_user.id,
+            Task.status == TaskStatus.CLOSED.value
+        ).count()
+    else:
+        completed_tasks_count = db.query(Task).filter(
+            Task.freelancer_id == current_user.id,
+            Task.status == TaskStatus.CLOSED.value
+        ).count()
+
+    profile_data = current_user.profile
+    if profile_data:
+        profile_data.portfolio = current_user.portfolio if current_user.portfolio else []
+
+    return UserResponse(
+        id=current_user.id,
+        username=current_user.username,
+        first_name=current_user.first_name,
+        last_name=current_user.last_name,
+        patronymic=current_user.patronymic,
+        email=current_user.email,
+        user_type=current_user.user_type.value,
+        is_banned=current_user.is_banned,
+        ban_expires_at=current_user.ban_expires_at.isoformat() if current_user.ban_expires_at else None,
+        created_at=current_user.created_at.isoformat() if current_user.created_at else None,
+        profile=profile_data,
+        skills=current_user.skills,
+        completed_tasks_count=completed_tasks_count,
+        rating=current_user.rating,
+        balance=current_user.balance
+    )
