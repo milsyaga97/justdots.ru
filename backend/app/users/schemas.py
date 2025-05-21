@@ -43,6 +43,8 @@ class ProfileBase(BaseModel):
     bio: str | None = None
     rating: float | None = None
     avatar_url: str | None = None
+    total_spent: float = 0.0
+    total_earned: float = 0.0
 
 class Profile(ProfileBase):
     user_id: int

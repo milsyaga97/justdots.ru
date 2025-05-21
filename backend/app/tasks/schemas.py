@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Literal
 from enum import Enum
 from datetime import datetime
 from ..reviews.schemas import ReviewResponse
@@ -10,7 +10,9 @@ class TaskStatus(str, Enum):
     REJECTED_BY_MODERATION = "Отклонена модерацией"
     OPEN = "Открытая"
     IN_PROGRESS = "В процессе"
+    PENDING_REVIEW = "На проверке заказчиком"
     CLOSED = "Закрытая"
+    DISPUTE = "Спор"
 
 class TaskSkillLevel(str, Enum):
     BASIC = "Менее года"
@@ -65,6 +67,7 @@ class TaskResponse(BaseModel):
     status: TaskStatus
     owner_id: Optional[int] = None
     freelancer_id: Optional[int] = None
+    keeper: float = 0.0
     submitted_at: datetime
     created_at: Optional[datetime]
 
@@ -72,6 +75,7 @@ class TaskResponse(BaseModel):
     freelancer_review: Optional[ReviewResponse] = None
 
     owner_profile: Optional[Profile] = None
+    freelancer_profile: Optional[Profile] = None
 
     model_config = {"use_enum_values": True, "from_attributes": True}
     
@@ -93,3 +97,7 @@ class ApplicationResponse(BaseModel):
     status: ApplicationStatus
 
     model_config = {"use_enum_values": True, "from_attributes": True}
+
+class DisputeWinner(str, Enum):
+    CUSTOMER = "customer"
+    FREELANCER = "freelancer"

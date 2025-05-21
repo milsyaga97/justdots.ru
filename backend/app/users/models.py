@@ -10,6 +10,8 @@ class Profile(Base):
     bio = Column(Text, nullable=True)
     rating = Column(Float, nullable=False, default=0.0)
     avatar_url = Column(String, nullable=True)
+    total_spent = Column(Float, nullable=False, default=0.0)  # Общая сумма потраченных средств (для заказчика)
+    total_earned = Column(Float, nullable=False, default=0.0)  # Общая сумма заработанных средств (для фрилансера)
     
     user = relationship("User", back_populates="profile")
 

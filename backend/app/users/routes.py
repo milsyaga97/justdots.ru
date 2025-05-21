@@ -103,7 +103,11 @@ async def update_profile(
         created_at=current_user.created_at.isoformat() if current_user.created_at else None,
         profile=profile_data_response,
         skills=current_user.skills,
-        completed_tasks_count=completed_tasks_count
+        completed_tasks_count=completed_tasks_count,
+        rating=current_user.rating,
+        balance=current_user.balance,
+        total_spent=profile_data_response.total_spent if profile_data_response else 0.0,
+        total_earned=profile_data_response.total_earned if profile_data_response else 0.0
     )
 
 @router.put("/profile/avatar", response_model=UserResponse)
@@ -114,7 +118,11 @@ async def update_avatar(
 ):
     profile = db.query(Profile).filter(Profile.user_id == current_user.id).first()
     if not profile:
-        profile = Profile(user_id=current_user.id)
+        profile = Profile(
+            user_id=current_user.id,
+            total_spent=0.0,
+            total_earned=0.0
+        )
         db.add(profile)
         db.commit()
 
@@ -166,7 +174,11 @@ async def update_avatar(
         created_at=current_user.created_at.isoformat() if current_user.created_at else None,
         profile=profile_data_response,
         skills=current_user.skills,
-        completed_tasks_count=completed_tasks_count
+        completed_tasks_count=completed_tasks_count,
+        rating=current_user.rating,
+        balance=current_user.balance,
+        total_spent=profile_data_response.total_spent if profile_data_response else 0.0,
+        total_earned=profile_data_response.total_earned if profile_data_response else 0.0
     )
 
 @router.get("/profile/{user_id}", response_model=UserResponse)
@@ -188,6 +200,10 @@ async def get_user_profile(user_id: int, db: Session = Depends(get_db)):
     profile_data = user.profile
     if profile_data:
         profile_data.portfolio = user.portfolio if user.portfolio else []
+        if profile_data.total_spent is None:
+            profile_data.total_spent = 0.0
+        if profile_data.total_earned is None:
+            profile_data.total_earned = 0.0
 
     return UserResponse(
         id=user.id,
@@ -202,6 +218,8 @@ async def get_user_profile(user_id: int, db: Session = Depends(get_db)):
         created_at=user.created_at.isoformat() if user.created_at else None,
         profile=profile_data,
         skills=user.skills,
-        completed_tasks_count=completed_tasks_count
+        completed_tasks_count=completed_tasks_count,
+        rating=user.rating,
+        balance=user.balance
     )
 

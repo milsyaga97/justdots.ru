@@ -4,10 +4,10 @@ from sqlalchemy import and_, or_
 from app.auth.dependencies import get_current_user
 from app.database import get_db
 from .models import Task, TaskCategory, TaskSkillLevel, TaskStatus, Application, ApplicationStatus
-from .schemas import TaskCreate, TaskUpdate, TaskResponse, ApplicationCreate, ApplicationResponse
+from .schemas import TaskCreate, TaskUpdate, TaskResponse, ApplicationCreate, ApplicationResponse, DisputeWinner
 from app.auth.models import User, UserType
 from app.users.models import Profile
-from typing import List, Optional
+from typing import List, Optional, Literal
 from datetime import datetime, timezone
 from sqlalchemy.orm import joinedload
 from ..notifications.utils import send_notification
@@ -73,8 +73,7 @@ async def create_task(
             task_id=new_task.id
         )
 
-    return TaskResponse.model_validate(new_task)       
-
+    return TaskResponse.model_validate(new_task)
 
 @router.get("/", response_model=List[TaskResponse])
 async def get_tasks(
@@ -156,6 +155,32 @@ async def get_task_applications(
         raise HTTPException(status_code=403, detail="Недопустимый тип пользователя")
 
     return [ApplicationResponse.model_validate(app.__dict__) for app in applications]
+
+@router.get("/disputes", response_model=List[TaskResponse])
+async def get_disputes(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    skip: int = 0,
+    limit: int = 10
+):
+    if current_user.user_type != UserType.MODERATOR:
+        raise HTTPException(status_code=403, detail="Только модераторы могут просматривать список споров")
+
+    disputes = db.query(Task).filter(Task.status == TaskStatus.DISPUTE)\
+        .offset(skip).limit(limit).all()
+
+    result = []
+    for task in disputes:
+        owner_profile = db.query(Profile).filter(Profile.user_id == task.owner_id).first()
+        freelancer_profile = db.query(Profile).filter(Profile.user_id == task.freelancer_id).first()
+        task_response = TaskResponse(
+            **task.__dict__,
+            owner_profile=owner_profile,
+            freelancer_profile=freelancer_profile
+        )
+        result.append(task_response)
+
+    return result
 
 @router.get("/{task_id}", response_model=TaskResponse)
 async def get_task_by_id(
@@ -241,34 +266,6 @@ async def update_task(
     db.refresh(task)
 
     return TaskResponse.model_validate(task.__dict__)
-
-@router.post("/{task_id}/close", response_model=TaskResponse)
-async def close_task(
-    task_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    if current_user.user_type != UserType.CUSTOMER:
-        raise HTTPException(status_code=403, detail="Только заказчики могут закрывать задачи")
-
-    task = db.query(Task).filter(Task.id == task_id, Task.owner_id == current_user.id).first()
-    if not task:
-        raise HTTPException(status_code=404, detail="Задача не найдена")
-
-    task.status = TaskStatus.CLOSED
-    db.commit()
-    db.refresh(task)
-    
-    if task.freelancer_id:
-        await send_notification(
-            db=db,
-            user_id=task.freelancer_id,
-            type="task_closed",
-            message=f"Задача '{task.title}' была закрыта заказчиком",
-            task_id=task.id
-        )
-
-    return TaskResponse.model_validate(task)
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_task(
@@ -379,7 +376,7 @@ async def apply_for_task(
         comment=application_data.comment,
         proposed_price=application_data.proposed_price,
         proposed_deadline=application_data.proposed_deadline,
-        status=ApplicationStatus.PENDING
+        status="На рассмотрении"  # Используем строковое значение
     )
 
     db.add(new_application)
@@ -422,22 +419,31 @@ async def accept_application(
     if application.status != ApplicationStatus.PENDING:
         raise HTTPException(status_code=400, detail="Заявка уже обработана")
 
-    application.status = ApplicationStatus.ACCEPTED
+    # Проверяем баланс заказчика
+    task_price = application.proposed_price if application.proposed_price is not None else task.budget_min
+    if task_price is None:
+        raise HTTPException(status_code=400, detail="Не указана стоимость задачи")
 
-    task.status = TaskStatus.IN_PROGRESS
+    if current_user.balance < task_price:
+        raise HTTPException(status_code=400, detail="Недостаточно средств на балансе")
+
+    # Списываем средства с баланса заказчика в keeper задачи
+    current_user.balance -= task_price
+    task.keeper = task_price
+
+    application.status = "Принята"  # Используем строковое значение
+    task.status = "В процессе"  # Используем строковое значение
     task.freelancer_id = application.freelancer_id
 
     if application.proposed_price is not None:
         task.budget_min = application.proposed_price
         task.budget_max = application.proposed_price
-    else:
-        pass
 
     other_applications = db.query(Application).filter(
         and_(Application.task_id == task_id, Application.id != application_id)
     ).all()
     for app in other_applications:
-        app.status = ApplicationStatus.REJECTED
+        app.status = "Отклонена"  # Используем строковое значение
 
     db.commit()
     db.refresh(task)
@@ -475,7 +481,7 @@ async def reject_application(
     if application.status != ApplicationStatus.PENDING:
         raise HTTPException(status_code=400, detail="Заявка уже обработана")
 
-    application.status = ApplicationStatus.REJECTED
+    application.status = "Отклонена"  # Используем строковое значение
     db.commit()
     db.refresh(application)
     
@@ -498,8 +504,6 @@ async def cancel_application(
     if current_user.user_type != UserType.FREELANCER:
         raise HTTPException(status_code=403, detail="Только фрилансеры могут отменять заявки")
 
-    task = db.query(Task).filter(Task.id == app.task_id).first()
-
     app = db.query(Application).filter(
         Application.id == application_id,
         Application.freelancer_id == current_user.id,
@@ -508,6 +512,8 @@ async def cancel_application(
 
     if not app:
         raise HTTPException(status_code=404, detail="Заявка не найдена или уже обработана")
+
+    task = db.query(Task).filter(Task.id == app.task_id).first()
 
     db.delete(app)
     db.commit()
@@ -521,3 +527,239 @@ async def cancel_application(
     )
     
     return {"message": "Заявка успешно отменена"}
+
+@router.post("/{task_id}/open-dispute", response_model=TaskResponse)
+async def open_dispute(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Задача не найдена")
+
+    # Проверяем, что пользователь является заказчиком или исполнителем задачи
+    if current_user.id != task.owner_id and current_user.id != task.freelancer_id:
+        raise HTTPException(status_code=403, detail="Вы не являетесь участником этой задачи")
+
+    if task.status != TaskStatus.IN_PROGRESS:
+        raise HTTPException(status_code=400, detail="Открыть спор можно только для задачи в процессе")
+
+    task.status = TaskStatus.DISPUTE
+    db.commit()
+    db.refresh(task)
+
+    # Отправляем уведомления обоим участникам
+    if current_user.id == task.owner_id:
+        await send_notification(
+            db=db,
+            user_id=task.freelancer_id,
+            type="dispute_opened",
+            message=f"Заказчик открыл спор по задаче '{task.title}'",
+            task_id=task.id
+        )
+    else:
+        await send_notification(
+            db=db,
+            user_id=task.owner_id,
+            type="dispute_opened",
+            message=f"Фрилансер открыл спор по задаче '{task.title}'",
+            task_id=task.id
+        )
+
+    return TaskResponse.model_validate(task)
+
+@router.post("/{task_id}/resolve-dispute", response_model=TaskResponse)
+async def resolve_dispute(
+    task_id: int,
+    winner: DisputeWinner,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.user_type != UserType.MODERATOR:
+        raise HTTPException(status_code=403, detail="Только модератор может разрешать споры")
+
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Задача не найдена")
+
+    if task.status != TaskStatus.DISPUTE:
+        raise HTTPException(status_code=400, detail="Можно разрешить только задачу в статусе спора")
+
+    customer = db.query(User).filter(User.id == task.owner_id).first()
+    freelancer = db.query(User).filter(User.id == task.freelancer_id).first()
+    
+    if not customer or not freelancer:
+        raise HTTPException(status_code=404, detail="Не найден заказчик или фрилансер")
+
+    customer_profile = db.query(Profile).filter(Profile.user_id == task.owner_id).first()
+    freelancer_profile = db.query(Profile).filter(Profile.user_id == task.freelancer_id).first()
+
+    if not customer_profile:
+        customer_profile = Profile(user_id=task.owner_id, total_spent=0.0, total_earned=0.0)
+        db.add(customer_profile)
+        db.commit()
+
+    if not freelancer_profile:
+        freelancer_profile = Profile(user_id=task.freelancer_id, total_spent=0.0, total_earned=0.0)
+        db.add(freelancer_profile)
+        db.commit()
+
+    if winner == DisputeWinner.CUSTOMER:
+        # Возвращаем деньги заказчику
+        customer.balance += task.keeper
+        task.keeper = 0
+        # Отменяем изменения в статистике
+        customer_profile.total_spent = float(customer_profile.total_spent or 0.0) - float(task.keeper)
+    else:
+        # Переводим деньги фрилансеру
+        freelancer.balance += task.keeper
+        # Обновляем статистику
+        customer_profile.total_spent = float(customer_profile.total_spent or 0.0) + float(task.keeper)
+        freelancer_profile.total_earned = float(freelancer_profile.total_earned or 0.0) + float(task.keeper)
+        task.keeper = 0
+
+    task.status = TaskStatus.CLOSED
+    db.commit()
+    db.refresh(task)
+
+    # Отправляем уведомления
+    await send_notification(
+        db=db,
+        user_id=task.owner_id,
+        type="dispute_resolved",
+        message=f"Спор по задаче '{task.title}' был разрешен в пользу {'заказчика' if winner == DisputeWinner.CUSTOMER else 'фрилансера'}",
+        task_id=task.id
+    )
+
+    await send_notification(
+        db=db,
+        user_id=task.freelancer_id,
+        type="dispute_resolved",
+        message=f"Спор по задаче '{task.title}' был разрешен в пользу {'заказчика' if winner == DisputeWinner.CUSTOMER else 'фрилансера'}",
+        task_id=task.id
+    )
+
+    response_dict = {
+        "id": task.id,
+        "title": task.title,
+        "description": task.description,
+        "budget_min": task.budget_min,
+        "budget_max": task.budget_max,
+        "deadline": task.deadline,
+        "category": task.category,
+        "custom_category": task.custom_category,
+        "skill_level": task.skill_level,
+        "status": task.status,
+        "owner_id": task.owner_id,
+        "freelancer_id": task.freelancer_id,
+        "keeper": task.keeper,
+        "submitted_at": task.submitted_at,
+        "created_at": task.created_at,
+        "owner_profile": customer_profile,
+        "freelancer_profile": freelancer_profile
+    }
+
+    return TaskResponse(**response_dict)
+
+@router.post("/{task_id}/submit-for-review", response_model=TaskResponse)
+async def submit_task_for_review(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.user_type != UserType.FREELANCER:
+        raise HTTPException(status_code=403, detail="Только фрилансеры могут отправлять задачи на проверку")
+
+    task = db.query(Task).filter(Task.id == task_id, Task.freelancer_id == current_user.id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Задача не найдена")
+
+    if task.status != TaskStatus.IN_PROGRESS:
+        raise HTTPException(status_code=400, detail="Можно отправить на проверку только задачу в процессе")
+
+    task.status = TaskStatus.PENDING_REVIEW
+    db.commit()
+    db.refresh(task)
+    
+    await send_notification(
+        db=db,
+        user_id=task.owner_id,
+        type="task_submitted_for_review",
+        message=f"Задача '{task.title}' отправлена на проверку",
+        task_id=task.id
+    )
+
+    return TaskResponse.model_validate(task)
+
+@router.post("/{task_id}/review-result", response_model=TaskResponse)
+async def process_review_result(
+    task_id: int,
+    action: Literal["accept", "reject", "reopen"],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.user_type != UserType.CUSTOMER:
+        raise HTTPException(status_code=403, detail="Только заказчики могут принимать решение по проверке")
+
+    task = db.query(Task).filter(Task.id == task_id, Task.owner_id == current_user.id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Задача не найдена")
+
+    if task.status != TaskStatus.PENDING_REVIEW:
+        raise HTTPException(status_code=400, detail="Можно принять решение только по задаче на проверке")
+
+    if action == "accept":
+        # Если заказчик принимает работу, задача переходит в статус CLOSED
+        task.status = TaskStatus.CLOSED
+        message = "Работа принята заказчиком"
+        
+        # Переводим средства фрилансеру
+        freelancer = db.query(User).filter(User.id == task.freelancer_id).first()
+        if freelancer and task.keeper > 0:
+            customer_profile = db.query(Profile).filter(Profile.user_id == current_user.id).first()
+            freelancer_profile = db.query(Profile).filter(Profile.user_id == freelancer.id).first()
+            
+            if not customer_profile:
+                customer_profile = Profile(user_id=current_user.id, total_spent=0.0, total_earned=0.0)
+                db.add(customer_profile)
+                db.commit()
+                
+            if not freelancer_profile:
+                freelancer_profile = Profile(user_id=freelancer.id, total_spent=0.0, total_earned=0.0)
+                db.add(freelancer_profile)
+                db.commit()
+            
+            customer_profile.total_spent = float(customer_profile.total_spent or 0.0) + float(task.keeper)
+            freelancer_profile.total_earned = float(freelancer_profile.total_earned or 0.0) + float(task.keeper)
+            
+            freelancer.balance += task.keeper
+            task.keeper = 0
+            
+    elif action == "reject":
+        # Если заказчик отклоняет работу, задача возвращается тому же фрилансеру на доработку
+        task.status = TaskStatus.IN_PROGRESS
+        message = "Работа отправлена на доработку"
+    else:  # reopen
+        # Если заказчик хочет открыть задачу для других фрилансеров
+        task.status = TaskStatus.OPEN
+        task.freelancer_id = None
+        # Возвращаем средства заказчику из keeper
+        if task.keeper > 0:
+            current_user.balance += task.keeper
+            task.keeper = 0
+        message = "Задача открыта для новых заявок"
+
+    db.commit()
+    db.refresh(task)
+    
+    if task.freelancer_id:  # Отправляем уведомление только если есть фрилансер
+        await send_notification(
+            db=db,
+            user_id=task.freelancer_id,
+            type="review_result",
+            message=f"Задача '{task.title}': {message}",
+            task_id=task.id
+        )
+
+    return TaskResponse.model_validate(task)
