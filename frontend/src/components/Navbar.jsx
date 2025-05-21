@@ -44,7 +44,7 @@ const Navbar = ({themeSwitcher, isDark}) => {
                                                 <SimpleButton icon="search">Лента заказов</SimpleButton>
                                             </Link>
                                             <Link style={{textDecoration: "none"}} to="/myapps">
-                                                <SimpleButton style="black" icon="quote-right"></SimpleButton>
+                                                <SimpleButton style="black" icon="quote-right">Мои заявки</SimpleButton>
                                             </Link>
                                         </>
                                     ) : (

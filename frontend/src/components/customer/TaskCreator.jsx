@@ -97,7 +97,6 @@ export const TaskCreator = () => {
                                 <option value="Дизайн">Дизайн</option>
                                 <option value="Программирование">Программирование</option>
                                 <option value="Копирайтинг">Копирайтинг</option>
-                                <option value="Другое">Другое</option>
                             </select>
                         </div>
                         <InputorWLabel label="Название заказа" onChange={(e) => setTitle(e.target.value)} required></InputorWLabel>

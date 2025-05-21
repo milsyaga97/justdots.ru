@@ -55,6 +55,16 @@ const MyApplications = () => {
         return mapAppStatus[a.status] - mapAppStatus[b.status];
     });
 
+    if(sortedApps.length === 0){
+        return(
+            <>
+                <div className="hatsaver"></div>
+                <div className="blocktitle">мои заявки</div>
+                Список заявок пуст
+            </>
+        )
+    }
+
     return (
         <>
             <div className="hatsaver"></div>
@@ -62,9 +72,9 @@ const MyApplications = () => {
             <div className="bodyblock gap5">
                 {sortedApps.map((item, index) => (
                     <div key={index} className="bodyblock fxrow aic gap5">
-                        <Link style={{textDecoration: "none"}} to={`/task/${item.task_id}`}>
+                        <Link className="filler" style={{textDecoration: "none"}} to={`/task/${item.task_id}`}>
                             <SimpleButton style="black" icon="search"></SimpleButton>
-                        </Link>
+
                         <div className="propblock">
                             <div className="titleblock">Заказ #{item.task_id}</div>
                         </div>
@@ -76,7 +86,11 @@ const MyApplications = () => {
                             {item.proposed_price}
                             <Icon icon="ruble-sign"></Icon>
                         </div>
-                        <div className="rev filler">
+                        <div className="filler">
+
+                        </div>
+                        </Link>
+                        <div>
                             {item.status === "На рассмотрении" ? (
                                 <SimpleButton style="black" icon="arrow-rotate-left" onClick={() => handleRecallApp(item)}>Отозвать заявку</SimpleButton>
                             ) : (

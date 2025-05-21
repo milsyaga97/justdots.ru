@@ -1,7 +1,7 @@
 import { Task } from "../tasks/Task.jsx"
 import { useState, useEffect } from "react";
 import api from "../../services/api.jsx";
-import {useNavigate} from "react-router-dom";
+import {Link, useNavigate} from "react-router-dom";
 import SimpleButton from "../SimpleButton.jsx";
 
 export const PublicTasks = () => {
@@ -107,10 +107,12 @@ export const PublicTasks = () => {
             {tasks.length > 0 ? (
                 <>
                     {sortedTasks.map((task) => (
-                        <Task key={task.id} task={task} trigger={isRefresh}/>
+                        <Link style={{textDecoration: "none"}} to={'/task/' + task.id}>
+                            <Task key={task.id} task={task} trigger={isRefresh}/>
+                        </Link>
                     ))}
                 </>
-            ) : "новых заказов нет"}
+            ) : "Новых заказов нет"}
             </div>
         </>
 
