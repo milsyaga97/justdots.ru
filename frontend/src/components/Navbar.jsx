@@ -5,6 +5,7 @@ import SimpleButton from './SimpleButton';
 import LogoContainer from './LogoContainer';
 import SimpleHatButton from './SimpleHatButton';
 import { SERVER_URL } from '../pathconfig.js';
+import Icon from "./other/Icon.jsx";
 
 const Navbar = ({themeSwitcher, isDark}) => {
     const navigate = useNavigate();
@@ -56,6 +57,10 @@ const Navbar = ({themeSwitcher, isDark}) => {
                                 <Link style={{textDecoration: "none"}} to={"/mytasks"}>
                                     <SimpleButton icon="bars" title="Мои заказы">Мои заказы</SimpleButton>
                                 </Link>
+                                <div className='propblock'>
+                                    <span style={{color: "var(--variable-collection-black)", fontSize: 23}}>{myuser.balance}</span>
+                                    <Icon icon="ruble-sign" color="var(--variable-collection-black)"></Icon>
+                                </div>
                                 <Link style={{ textDecoration: 'none' }} to={"/profile/" + myuser.id} title='Мой профиль'>
                                     <div tabIndex={0} className='ellipse-profile miniep'>
                                         <img src={myuser.profile?.avatar_url ? `${SERVER_URL + myuser.profile?.avatar_url}` : null} />
