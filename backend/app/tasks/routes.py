@@ -20,6 +20,10 @@ def validate_budget(budget_min: float | None, budget_max: float | None):
             raise ValueError("Минимальный бюджет не может быть больше максимального")
     return True
 
+def round_balance(value: float) -> float:
+    """Округляет значение до двух знаков после запятой"""
+    return round(value, 2)
+
 @router.post("/create", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
 async def create_task(
     task_data: TaskCreate,
@@ -199,7 +203,8 @@ async def get_task_by_id(
         freelancer_review = next((r for r in task.reviews if r.user_id == task.freelancer_id), None)
     elif current_user.user_type == UserType.FREELANCER and (
         task.status == TaskStatus.OPEN or
-        task.status == TaskStatus.DISPUTE or  # Разрешаем доступ при споре
+        task.status == TaskStatus.DISPUTE or
+        task.status == TaskStatus.PENDING_REVIEW or  # Добавляем доступ к задачам на проверке
         (task.status == TaskStatus.IN_PROGRESS and task.freelancer_id == current_user.id) or
         (task.status == TaskStatus.CLOSED and task.freelancer_id == current_user.id)
     ):
@@ -429,8 +434,8 @@ async def accept_application(
         raise HTTPException(status_code=400, detail="Недостаточно средств на балансе")
 
     # Списываем средства с баланса заказчика в keeper задачи
-    current_user.balance -= task_price
-    task.keeper = task_price
+    current_user.balance = round_balance(current_user.balance - task_price)
+    task.keeper = round_balance(task_price)
 
     application.status = "Принята"  # Используем строковое значение
     task.status = "В процессе"  # Используем строковое значение
@@ -619,16 +624,16 @@ async def resolve_dispute(
 
     if winner == DisputeWinner.CUSTOMER:
         # Возвращаем деньги заказчику
-        customer.balance += task.keeper
+        customer.balance = round_balance(customer.balance + task.keeper)
         task.keeper = 0
         # Отменяем изменения в статистике
-        customer_profile.total_spent = float(customer_profile.total_spent or 0.0) - float(task.keeper)
+        customer_profile.total_spent = round_balance(float(customer_profile.total_spent or 0.0) - float(task.keeper))
     else:
         # Переводим деньги фрилансеру
-        freelancer.balance += task.keeper
+        freelancer.balance = round_balance(freelancer.balance + task.keeper)
         # Обновляем статистику
-        customer_profile.total_spent = float(customer_profile.total_spent or 0.0) + float(task.keeper)
-        freelancer_profile.total_earned = float(freelancer_profile.total_earned or 0.0) + float(task.keeper)
+        customer_profile.total_spent = round_balance(float(customer_profile.total_spent or 0.0) + float(task.keeper))
+        freelancer_profile.total_earned = round_balance(float(freelancer_profile.total_earned or 0.0) + float(task.keeper))
         task.keeper = 0
 
     # Возвращаем задачу в статус "В процессе"
@@ -743,10 +748,10 @@ async def process_review_result(
                 db.add(freelancer_profile)
                 db.commit()
             
-            customer_profile.total_spent = float(customer_profile.total_spent or 0.0) + float(task.keeper)
-            freelancer_profile.total_earned = float(freelancer_profile.total_earned or 0.0) + float(task.keeper)
+            customer_profile.total_spent = round_balance(float(customer_profile.total_spent or 0.0) + float(task.keeper))
+            freelancer_profile.total_earned = round_balance(float(freelancer_profile.total_earned or 0.0) + float(task.keeper))
             
-            freelancer.balance += task.keeper
+            freelancer.balance = round_balance(freelancer.balance + task.keeper)
             task.keeper = 0
             
     elif action == "reject":
@@ -759,7 +764,7 @@ async def process_review_result(
         task.freelancer_id = None
         # Возвращаем средства заказчику из keeper
         if task.keeper > 0:
-            current_user.balance += task.keeper
+            current_user.balance = round_balance(current_user.balance + task.keeper)
             task.keeper = 0
         message = "Задача открыта для новых заявок"
 

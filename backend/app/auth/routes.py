@@ -9,9 +9,10 @@ from .schemas import UserCreate, UserResponse, UserLogin, Token, ChangeUserRoleR
 from .dependencies import hash_password, verify_password, create_access_token, create_refresh_token, \
     verify_refresh_token, get_current_user, oauth2_scheme
 from ..database import get_db
-from datetime import datetime
+from datetime import datetime, timezone
 from ..tasks.models import Task, TaskStatus
 from app.users.models import Profile
+from typing import List
 
 router = APIRouter()
 
@@ -361,6 +362,11 @@ async def ban_user(
     return {"message": f"Пользователь {target_user.username} заблокирован до {ban_expires_at.isoformat()}"}
 
 
+def round_balance(value: float) -> float:
+    """Округляет значение до двух знаков после запятой"""
+    return round(value, 2)
+
+
 @router.post("/balance/add", response_model=UserResponse)
 async def add_balance(
     balance_data: AddBalanceRequest,
@@ -368,42 +374,22 @@ async def add_balance(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Пополнение баланса пользователя.
-    В реальном приложении здесь была бы интеграция с платежной системой.
+    Пополнение баланса пользователя
     """
-    current_user.balance += balance_data.amount
+    if balance_data.amount <= 0:
+        raise HTTPException(status_code=400, detail="Сумма пополнения должна быть больше нуля")
+
+    current_user.balance = round_balance(current_user.balance + balance_data.amount)
     db.commit()
     db.refresh(current_user)
-
-    if current_user.user_type == UserType.CUSTOMER:
-        completed_tasks_count = db.query(Task).filter(
-            Task.owner_id == current_user.id,
-            Task.status == TaskStatus.CLOSED.value
-        ).count()
-    else:
-        completed_tasks_count = db.query(Task).filter(
-            Task.freelancer_id == current_user.id,
-            Task.status == TaskStatus.CLOSED.value
-        ).count()
-
-    profile_data = current_user.profile
-    if profile_data:
-        profile_data.portfolio = current_user.portfolio if current_user.portfolio else []
 
     return UserResponse(
         id=current_user.id,
         username=current_user.username,
-        first_name=current_user.first_name,
-        last_name=current_user.last_name,
-        patronymic=current_user.patronymic,
         email=current_user.email,
-        user_type=current_user.user_type.value,
+        user_type=current_user.user_type,
         is_banned=current_user.is_banned,
-        ban_expires_at=current_user.ban_expires_at.isoformat() if current_user.ban_expires_at else None,
-        created_at=current_user.created_at.isoformat() if current_user.created_at else None,
-        profile=profile_data,
-        skills=current_user.skills,
-        completed_tasks_count=completed_tasks_count,
-        rating=current_user.rating,
-        balance=current_user.balance
+        ban_reason=current_user.ban_reason,
+        balance=current_user.balance,
+        created_at=current_user.created_at
     )
