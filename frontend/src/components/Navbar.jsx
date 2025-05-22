@@ -58,9 +58,14 @@ const Navbar = ({themeSwitcher, isDark}) => {
                                     <SimpleButton icon="bars" title="Мои заказы">Мои заказы</SimpleButton>
                                 </Link>
                                 <div className='propblock'>
-                                    <span style={{color: "var(--variable-collection-black)", fontSize: 23}}>{myuser.balance}</span>
+                                    <span style={{color: "var(--variable-collection-black)", fontSize: 16}}>{myuser.balance}</span>
                                     <Icon icon="ruble-sign" color="var(--variable-collection-black)"></Icon>
                                 </div>
+                                <Link to='/wallet'>
+                                    <button className='propblock black lhbon'>
+                                        <Icon icon='wallet' color='white'/>
+                                    </button>
+                                </Link>
                                 <Link style={{ textDecoration: 'none' }} to={"/profile/" + myuser.id} title='Мой профиль'>
                                     <div tabIndex={0} className='ellipse-profile miniep'>
                                         <img src={myuser.profile?.avatar_url ? `${SERVER_URL + myuser.profile?.avatar_url}` : null} />
@@ -77,6 +82,9 @@ const Navbar = ({themeSwitcher, isDark}) => {
                                     </div>
                                     <Link style={{textDecoration: "none"}} to="/moderate">
                                         <SimpleButton icon="search" style="accent">Модерация заказов</SimpleButton>
+                                    </Link>
+                                    <Link style={{textDecoration: "none"}} to="/arbitrage">
+                                        <SimpleButton icon="shield" style="black">Арбитраж</SimpleButton>
                                     </Link>
                                 </div>
                                 <span style={{color: "var(--variable-collection-black)"}}>{myuser.username}</span>

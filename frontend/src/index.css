@@ -1491,3 +1491,8 @@ form {
     font-size: 24px;
     color: gray;
 }
+
+.lhbon:hover{
+    cursor: pointer;
+    filter: brightness(80%);
+}

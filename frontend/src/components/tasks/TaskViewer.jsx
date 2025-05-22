@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { useNotification } from '../../context/Notifications.jsx';
 import { AuthContext } from '../../context/AuthContext.jsx';
 import api from '../../services/api.jsx';
@@ -192,12 +192,41 @@ export const TaskViewer = () => {
         }
     }
 
+
+    const moderateDiscuse = async (typeaction) => {
+        const actionMap = {
+            1: { ownerAction: 'customer', message: 'Вы решили в сторону заказчика заказ #' },
+            2: { ownerAction: 'freelancer', message: 'Вы решили в сторону фрилансера заказ #' },
+        };
+
+        const selectedSide = actionMap[typeaction];
+
+        if (!selectedSide) {
+            console.error('Invalid action type');
+            return;
+        }
+
+        try {
+            await api.post(`/tasks/${task.id}/resolve-dispute?winner=${selectedSide.ownerAction}`);
+            notify({
+                message: `${selectedSide.message}${task.id}`,
+                type: 'info',
+                duration: 4200
+            });
+        } catch (error) {
+            console.error('Error in resultScenario:', error);
+        }
+        finally {
+            update();
+            navigate('/arbitrage')
+        }
+    }
+
     if (loading) {
         return (
             <Loader />
         )
     }
-
 
     const { diffresult, dayText, status } = CalcMinusDater(task.deadline);
     return (
@@ -257,7 +286,7 @@ export const TaskViewer = () => {
                                 <span style={{fontWeight: "600", fontSize: "14px", color: "var(--variable-collection-accent)"}}>
                                     Фрилансер отметил заказ выполненным, проверьте результат выполнения и выберите нужное действие справа
                                 </span>
-                            ) : task.status === "Спор" ?(
+                            ) : task.status === "Спор" && myuser.user_type !== "moderator" ?(
                                 <span style={{fontWeight: "600", fontSize: "14px", color: "orange"}}>
                                     Внимание! По данному заказу открыт спор, просьба обоих участников заказа расписать возникшие проблемы в чате.
                                     После анализа ситуации, модерация закроет данную задачу в одну из сторон.
@@ -269,9 +298,9 @@ export const TaskViewer = () => {
                         {myuser.id === taskOwner.id && task.status !== "На рассмотрении модерацией" ? (
                             <div className="tbtop">
                                 {task.status === "Открытая" || task.status === "Отклонена модерацией" ? (
-                                    <SimpleButton style="red" icon="trash" onClick={handleTaskDelete}>
+                                    <ConfirmSimpleButton style="red" icon="trash" action={handleTaskDelete}>
                                         Удалить заказ
-                                    </SimpleButton>
+                                    </ConfirmSimpleButton>
                                 ) : (
                                     <div className="task-freelancerlinkfull">
                                         <span style={{color: "var(--variable-collection-black)"}}>{task.status !== "Закрытая" ? "В работе у" : "Заказ выполнил"}</span>
@@ -288,7 +317,7 @@ export const TaskViewer = () => {
                                     </div>
                                 )}
                             </div>
-                        ) : task.status !== "На рассмотрении модерацией" ? (
+                        ) : task.status !== "На рассмотрении модерацией" && myuser.user_type !== "moderator" ? (
                             <div className="tbtop">
                                 <div className="task-freelancerlinkfull">
                                     <span style={{color: "var(--variable-collection-black)"}}>Заказчик</span>
@@ -308,11 +337,51 @@ export const TaskViewer = () => {
                                     </Link>
                                 </div>
                             </div>
-                        ) : task.status === "На рассмотрении модерацией" && (
+                        ) : task.status === "На рассмотрении модерацией" ? (
                             <div className="tbtop">
-                                <SimpleButton style="red" icon="trash" onClick={handleTaskDelete}>
+                                <ConfirmSimpleButton style="red" icon="trash" action={handleTaskDelete}>
                                     Удалить заказ
-                                </SimpleButton>
+                                </ConfirmSimpleButton>
+                            </div>
+                        ) : myuser.user_type === 'moderator' && (
+                            <div className="tbtop">
+                                <div className="task-freelancerlinkfull">
+                                    <div className="bfxcol gap5">
+                                        <div className='bfxrow aic gap5 rev'>
+                                            <span style={{color: "var(--variable-collection-black)"}}>Заказчик</span>
+                                            <Link style={{ textDecoration: "none" }} to={`/profile/${taskOwner.id}`}>
+                                                <div className="miniprofile">
+                                                    <div className="miniprofile-avatar">
+                                                        {taskOwner.profile.avatar_url ? (
+                                                            <img src={`${SERVER_URL}${taskOwner.profile.avatar_url}`} alt="Аватар заказчика" />
+                                                        ) : (<div/>)}
+                                                    </div>
+                                                    <div className="propblock black">
+                                                        <Icon icon="star" color="gold"/>
+                                                        {taskOwner.profile.rating || "0.0"}
+                                                    </div>
+                                                </div>
+                                            </Link>
+                                        </div>
+                                        <div className='bfxrow aic gap5 rev'>
+                                            <span style={{color: "var(--variable-collection-black)"}}>Исполнитель</span>
+                                            <Link style={{ textDecoration: "none" }} to={`/profile/${taskFreelancer.id}`}>
+                                                <div className="miniprofile">
+                                                    {taskFreelancer.username}
+                                                    <div className="miniprofile-avatar">
+                                                        {taskFreelancer.profile.avatar_url ? (
+                                                            <img src={`${SERVER_URL}${taskFreelancer.profile.avatar_url}`} alt="Аватар заказчика" />
+                                                        ) : (<div/>)}
+                                                    </div>
+                                                    <div className="propblock black">
+                                                        <Icon icon="star" color="gold"/>
+                                                        {taskFreelancer.profile.rating || "0.0"}
+                                                    </div>
+                                                </div>
+                                            </Link>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         )}
                         {myuser.user_type == "freelancer" ? (
@@ -340,7 +409,7 @@ export const TaskViewer = () => {
                                     null
                                 )}
                             </>
-                        ) : (
+                        ) : myuser.user_type === "customer" ? (
                             <div className="tbbottom">
                                 {task.status == "На проверке заказчиком" && (
                                     <div className='bfxcol gap5'>
@@ -349,6 +418,13 @@ export const TaskViewer = () => {
                                         <ConfirmSimpleButton style='green' icon='check' action={() => resultScenario(1)}>Подтвердить выполнение</ConfirmSimpleButton>
                                     </div>
                                 )}
+                            </div>
+                        ) : myuser.user_type === "moderator" && (
+                            <div className="tbbottom">
+                                <div className="bfxcol gap5">
+                                    <ConfirmSimpleButton style='accent' icon='arrow-left' action={() => moderateDiscuse(1)}>Решить в сторону заказчика</ConfirmSimpleButton>
+                                    <ConfirmSimpleButton style='accent' icon='arrow-right' action={() => moderateDiscuse(2)}>Решить в сторону фрилансера</ConfirmSimpleButton>
+                                </div>
                             </div>
                         )}
                     </div>

@@ -37,6 +37,7 @@ export const Feedback = ({ taskid, onAction, closing }) => {
         }
         catch (error) {
             console.log(error);
+            notify({message: `Недостаточно средств на балансе`, type: 'error', duration: 4200});
         }
         finally {
             feedbackFetcher();
