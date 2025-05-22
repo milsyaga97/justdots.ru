@@ -7,7 +7,8 @@ class ChatMessageCreate(BaseModel):
 
 class ChatMessageResponse(BaseModel):
     task_id: Optional[int]
-    owner_id: int
+    sender_id: int
+    receiver_id: int
     message: str
     created_at: datetime
 

@@ -31,7 +31,7 @@ async def send_message(
     if not (is_participant or is_moderator_in_dispute):
         raise HTTPException(status_code=403, detail="У вас нет доступа к этому чату")
 
-    # Определяем получателя
+    # Определяем получателей
     if is_moderator_in_dispute:
         # Если пишет модератор, отправляем сообщение обоим участникам
         receivers = [task.owner_id, task.freelancer_id]
@@ -41,16 +41,20 @@ async def send_message(
         if not receivers[0]:
             raise HTTPException(status_code=400, detail="Получатель не определен (фрилансер не назначен)")
 
-    # Создаем сообщение
-    new_message = ChatMessage(
-        owner_id=current_user.id,
-        task_id=task_id,
-        message=message_data.message
-    )
-    db.add(new_message)
+    # Создаем сообщения для каждого получателя
+    messages = []
+    for receiver_id in receivers:
+        new_message = ChatMessage(
+            sender_id=current_user.id,
+            receiver_id=receiver_id,  # Добавляем receiver_id
+            task_id=task_id,
+            message=message_data.message
+        )
+        db.add(new_message)
+        messages.append(new_message)
+    
     db.commit()
-    db.refresh(new_message)
-
+    
     # Отправляем уведомления всем получателям
     for receiver_id in receivers:
         await send_notification(
@@ -61,7 +65,8 @@ async def send_message(
             task_id=task_id
         )
 
-    return ChatMessageResponse.model_validate(new_message)
+    # Возвращаем первое сообщение (они все одинаковые)
+    return ChatMessageResponse.model_validate(messages[0])
 
 @router.get("/{task_id}/history", response_model=List[ChatMessageResponse])
 async def get_chat_history(
@@ -82,5 +87,10 @@ async def get_chat_history(
         raise HTTPException(status_code=403, detail="У вас нет доступа к этому чату")
 
     # Получаем сообщения
-    messages = db.query(ChatMessage).filter(ChatMessage.task_id == task_id).order_by(ChatMessage.created_at.asc()).all()
+    messages = db.query(ChatMessage).filter(
+        ChatMessage.task_id == task_id,
+        # Показываем сообщения, где пользователь либо отправитель, либо получатель
+        (ChatMessage.sender_id == current_user.id) | (ChatMessage.receiver_id == current_user.id)
+    ).order_by(ChatMessage.created_at.asc()).all()
+    
     return [ChatMessageResponse.model_validate(msg) for msg in messages]
