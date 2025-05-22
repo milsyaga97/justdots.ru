@@ -882,7 +882,7 @@ form {
     /* outline: 1px solid red; */
     flex: 1;
     width: 600px;
-    gap: 5px;
+    gap: 15px;
 }
 
 .taskblock-insp {
@@ -902,6 +902,7 @@ form {
     display: flex;
     flex-direction: column;
     gap: 15px;
+    flex: 1;
 }
 
 .taskblock-price {
@@ -1277,8 +1278,8 @@ form {
 }
 
 .message-text{
-    background: var(--variable-collection-accent);
-    color: white;
+    background: var(--variable-collection-white);
+    color: var(--variable-collection-black);
     padding: 10px;
     word-break: break-word;
     height: min-content;
@@ -1291,8 +1292,8 @@ form {
 }
 
 .mymessage-text{
-    background: var(--variable-collection-white);
-    color: var(--variable-collection-black);
+    background: var(--variable-collection-accent);
+    color: white;
     padding: 10px;
     word-break: break-word;
     height: min-content;
@@ -1354,6 +1355,7 @@ form {
 .message-date{
     font-size: 12px;
     opacity: 0.5;
+    padding: 2px;
 }
 
 .chatmymessage{
@@ -1480,4 +1482,12 @@ form {
         flex-wrap: wrap;
         gap: 50px;
     }
+}
+
+.cc{
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    font-size: 24px;
+    color: gray;
 }

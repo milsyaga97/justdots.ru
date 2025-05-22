@@ -50,11 +50,17 @@ const MessageViewer = ({task}) => {
         <div className="bodyblock gap5">
             <div className="titleblock">Чат</div>
             <div className="chatviewer">
-                <div className="chatwindow">
-                    {messages.map((item, index) => (
-                        <Message key={index} message={item}></Message>
-                    ))}
-                </div>
+                {messages.length < 1 ? (
+                    <div className='chatwindow cc'>
+                        Сообщений нет
+                    </div>
+                ) : (
+                    <div className="chatwindow">
+                        {messages.map((item, index) => (
+                            <Message key={index} message={item}></Message>
+                        ))}
+                    </div>
+                )}
             </div>
             <form onSubmit={handleSubmitMessage}>
                 <div className="bfxrow filler">

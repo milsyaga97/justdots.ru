@@ -1,4 +1,5 @@
 import React from 'react';
+import Icon from "../other/Icon.jsx";
 
 const TaskStatus = ({status}) => {
     return (
@@ -36,10 +37,22 @@ const TaskStatus = ({status}) => {
                         {status}
                     </span>
                 </>
+            ) : status === "На проверке заказчиком" ? (
+                <>
+                    <span style={{ color: "var(--variable-collection-accent)", fontSize: "14px", fontWeight: 800 }}>
+                        <Icon icon='eye'></Icon> {status}
+                    </span>
+                </>
+            ) : status === "Спор" ? (
+                <>
+                    <span style={{ color: "orange", fontSize: "20px", fontWeight: 800 }}>
+                         <Icon icon="warning"></Icon> {status}
+                    </span>
+                </>
             ) : status === "Отклонена модерацией" && (
                 <>
                     <span style={{ color: "red", fontSize: "14px", fontWeight: 800 }}>
-                        {status}
+                        <Icon icon='xmark'></Icon> {status}
                     </span>
                 </>
             )}

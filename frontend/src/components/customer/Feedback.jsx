@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import SimpleButton from "../SimpleButton.jsx";
 import {useNotification} from "../../context/Notifications.jsx";
 import Icon from "../other/Icon.jsx";
+import ConfirmSimpleButton from "../tasks/ConfirmSimpleButton.jsx";
 
 export const Feedback = ({ taskid, onAction, closing }) => {
     const [feedbacks, setFeedbacks] = useState([]);
@@ -32,13 +33,13 @@ export const Feedback = ({ taskid, onAction, closing }) => {
             const response = await api.post(`/tasks/${taskid}/applications/${id}/accept`);
             console.log(response);
             notify({message: `Вы передали заказ #${taskid} в работу`, type: "success", duration: 4200});
+            closing();
         }
         catch (error) {
             console.log(error);
         }
         finally {
             feedbackFetcher();
-            closing();
         }
     }
 
@@ -71,8 +72,8 @@ export const Feedback = ({ taskid, onAction, closing }) => {
                             {feedback.proposed_price}
                             <Icon icon="ruble-sign"/>
                         </div>
-                        <SimpleButton icon="check" style="accent" onClick={() => {feedbackAccept(feedback.id); onAction?.();}}>Принять</SimpleButton>
-                        <SimpleButton icon="xmark" style="black"  onClick={() => {feedbackReject(feedback.id); onAction?.();}}>Отклонить</SimpleButton>
+                        <ConfirmSimpleButton icon="check" style="accent" action={() => {feedbackAccept(feedback.id)}}>Принять</ConfirmSimpleButton>
+                        <SimpleButton icon="xmark" style="black"  onClick={() => {feedbackReject(feedback.id)}}>Отклонить</SimpleButton>
                     </div>
                 </div>
             ))}

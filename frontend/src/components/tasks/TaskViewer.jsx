@@ -19,6 +19,8 @@ import ReviewViewer from "./ReviewViewer.jsx";
 import Inputor from "../Inputor.jsx";
 import Message from "../chat/message.jsx";
 import MessageViewer from "./MessageViewer.jsx";
+import ConfirmSimpleButton from "./ConfirmSimpleButton.jsx";
+import message from "../chat/message.jsx";
 
 export const TaskViewer = () => {
     const navigate = useNavigate();
@@ -31,7 +33,7 @@ export const TaskViewer = () => {
     const [taskFreelancer, setTaskFreelancer] = useState({});
     const [appcounter, setApps] = useState(0);
     const [isConfirmed, setConfirm] = useState(false);
-
+    const [swSend, setSWSend] = useState(false);
 
     const [matchedApp, setMatchedApp] = useState({});
     const [isApped, setApp] = useState(false);
@@ -40,6 +42,22 @@ export const TaskViewer = () => {
 
     const [isUpdate, setUpdate] = useState(false);
 
+    const [arbitrageState, setArbState] = useState(false);
+    const switchArbBut = () => {
+        setArbState(prev => !prev);
+    }
+    const arbitrageMaker = async () => {
+        try{
+            api.post(`/tasks/${task.id}/open-dispute`);
+            notify({message: `Вы открыли спор по заказу #${task.id}`, type: 'warning', duration: 4200});
+        }
+        catch(error){
+            console.log(error);
+        }
+        finally {
+            update();
+        }
+    }
 
     const handleTaskFetch = async () => {
         if (!myuser) return;
@@ -109,18 +127,6 @@ export const TaskViewer = () => {
         }
     }
 
-    const handleConfirmTask = async () => {
-        try {
-            await api.post(`/tasks/${task.id}/close`);
-            notify({ message: `Заказ #${task.id} завершен`, type: "success", duration: 4200 });
-            handleTaskFetch();
-        }
-        catch (error) {
-            console.log(error);
-            notify({ message: `Ошибка при завершении заказа: ${error.message || "NuN"}`, type: "error", duration: 4200 });
-        }
-    }
-
     const handleSendApp = async () => {
         if(isApped) return (notify({message: "Вы уже оставили заявку на данный заказ", type: "info", duration: 4200}));
         if(appText.length < 5) return (notify({message: "Длина сообщения должна быть больше пяти символов", type: "info", duration: 4200}));
@@ -138,17 +144,6 @@ export const TaskViewer = () => {
         update();
     }
 
-    const handleRecallApp = async () => {
-        try{
-            await api.post(`/tasks/applications/cancel/?application_id=${matchedApp.id}`);
-            notify({message: `Вы отозвали заявку на заказ #${task.id}`});
-            update();
-        }
-        catch(error){
-            console.error(error);
-        }
-    }
-
     const update = () =>{
         setUpdate(prev => !prev);
     }
@@ -157,6 +152,45 @@ export const TaskViewer = () => {
         setConfirm(true);
     }
 
+    const resultScenario = async (actionType) => {
+        const actionMap = {
+            1: { ownerAction: 'accept', message: 'Вы отметили завершенным заказ #' },
+            2: { ownerAction: 'reject', message: 'Вы отправили в доработку заказ #' },
+            3: { ownerAction: 'reopen', message: 'Вы перевыпустили заказ #' }
+        };
+
+        const selectedAction = actionMap[actionType];
+
+        if (!selectedAction) {
+            console.error('Invalid action type');
+            return;
+        }
+
+        try {
+            await api.post(`/tasks/${task.id}/review-result?action=${selectedAction.ownerAction}`);
+            notify({
+                message: `${selectedAction.message}${task.id}`,
+                type: 'info',
+                duration: 4200
+            });
+        } catch (error) {
+            console.error('Error in resultScenario:', error);
+        }
+        finally {
+            update();
+        }
+    };
+
+    const sendOnCheck = async () => {
+        try{
+            await api.post(`/tasks/${task.id}/submit-for-review`);
+            notify({message: `Вы отметили заказ #${task.id} выполненным`, type: 'info', duration: 4200});
+            handleConfirm();
+        }
+        catch(error){
+            console.log(error);
+        }
+    }
 
     if (loading) {
         return (
@@ -172,6 +206,25 @@ export const TaskViewer = () => {
             <div className='blocktitle'>
                 <SimpleButton icon="arrow-left" onClick={() => navigate(-1)}>Назад</SimpleButton>
                     заказ #{task.id}
+                {task.status === "В процессе" &&
+                    <div className='rev filler'>
+                        {arbitrageState ? (
+                            <div style={{fontSize: 14}} className='bfxrow aic gap5'>
+                                <span>Открыть спор?</span>
+                                <button className='skillremover' onClick={arbitrageMaker}>
+                                    <Icon icon='check' color='var(--variable-collection-black)'/>
+                                </button>
+                                <button className='skillremover' onClick={switchArbBut}>
+                                    <Icon icon='xmark' color='var(--variable-collection-black)'/>
+                                </button>
+                            </div>
+                        ) : (
+                            <button className='skillremover red' title='Открыть спор' onClick={switchArbBut}>
+                                <Icon icon='warning' color='white' size={14}></Icon>
+                            </button>
+                        )}
+                    </div>
+                }
             </div>
             <div className="bodyblock gap10">
                 <div className="bodyblock fxrow">
@@ -191,7 +244,7 @@ export const TaskViewer = () => {
                                     <div className={status ? "propblock black" : "propblock red"}>
                                         Срок: {diffresult} {dayText}
                                     </div>
-                                ) : task.status == "В процессе" ? (
+                                ) : task.status == "В процессе" || task.status == "Спор" ? (
                                     <div className={status ? "propblock black" : "propblock red"}>
                                         Срок: {diffresult} {dayText}
                                     </div>
@@ -200,6 +253,16 @@ export const TaskViewer = () => {
                             <AutoTextarea>{task.description}</AutoTextarea>
                             <TaskBudjet bmin={task.budget_min} bmax={task.budget_max} view="max"/>
                             <TaskStatus status={task.status}/>
+                            {taskOwner.id === myuser.id && task.status === "На проверке заказчиком" ? (
+                                <span style={{fontWeight: "600", fontSize: "14px", color: "var(--variable-collection-accent)"}}>
+                                    Фрилансер отметил заказ выполненным, проверьте результат выполнения и выберите нужное действие справа
+                                </span>
+                            ) : task.status === "Спор" ?(
+                                <span style={{fontWeight: "600", fontSize: "14px", color: "orange"}}>
+                                    Внимание! По данному заказу открыт спор, просьба обоих участников заказа расписать возникшие проблемы в чате.
+                                    После анализа ситуации, модерация закроет данную задачу в одну из сторон.
+                                </span>
+                            ) : null}
                         </div>
                     </div>
                     <div className="taskblock">
@@ -211,7 +274,7 @@ export const TaskViewer = () => {
                                     </SimpleButton>
                                 ) : (
                                     <div className="task-freelancerlinkfull">
-                                        <span style={{color: "var(--variable-collection-black)"}}>{task.status === "В процессе" ? "В работе у" : "Заказ выполнил"}</span>
+                                        <span style={{color: "var(--variable-collection-black)"}}>{task.status !== "Закрытая" ? "В работе у" : "Заказ выполнил"}</span>
                                         <Link style={{ textDecoration: "none" }} to={`/profile/${taskFreelancer.id}`}>
                                             <div className="miniprofile">
                                                 {taskFreelancer.username}
@@ -254,7 +317,7 @@ export const TaskViewer = () => {
                         )}
                         {myuser.user_type == "freelancer" ? (
                             <>
-                                {task.status == "Открытая" && (
+                                {task.status == "Открытая" ? (
                                 <div className="tbbottom">
                                     {!isApped ? (
                                         <div className="bfxcol gap5">
@@ -264,28 +327,36 @@ export const TaskViewer = () => {
                                         </div>
                                     ) : (
                                         <div className="bfxcol gap20">
-                                            <div className="propblock">Заявка оставлена</div>
-                                            <SimpleButton style="black" icon="arrow-rotate-left" onClick={handleRecallApp}>Отозвать заявку</SimpleButton>
+                                            <div className="propblock">Вы оставляли заявку на данный заказ</div>
                                         </div>
                                         )
                                     }
                                 </div>
+                                ) : task.status == "В процессе" ?(
+                                    <div className="bfxrow rev gap5">
+                                        <ConfirmSimpleButton icon='check' action={sendOnCheck}>Отметить выполненным</ConfirmSimpleButton>
+                                    </div>
+                                ) : task.status == "На проверке заказчиком" && (
+                                    null
                                 )}
                             </>
                         ) : (
                             <div className="tbbottom">
-                                {task.status == "В процессе" && (
-                                    <SimpleButton style="accent" onClick={handleConfirmTask}>
-                                        Подтвердить выполнение заказа
-                                    </SimpleButton>
+                                {task.status == "На проверке заказчиком" && (
+                                    <div className='bfxcol gap5'>
+                                        <ConfirmSimpleButton style='black' icon='repeat' action={() => resultScenario(3)}>Найти нового фрилансера</ConfirmSimpleButton>
+                                        <ConfirmSimpleButton icon='clock' action={() => resultScenario(2)}>Требуются доработки</ConfirmSimpleButton>
+                                        <ConfirmSimpleButton style='green' icon='check' action={() => resultScenario(1)}>Подтвердить выполнение</ConfirmSimpleButton>
+                                    </div>
                                 )}
                             </div>
                         )}
                     </div>
                 </div>
 
-
-                {task.status == "В процессе" && (
+                {task.status == "В процессе" || task.status == "На проверке заказчиком" ? (
+                    <MessageViewer task={task} ></MessageViewer>
+                ) : task.status == "Спор" && (
                     <MessageViewer task={task} ></MessageViewer>
                 )}
 

@@ -78,7 +78,8 @@ export const Task = ({ task, trigger }) => {
     const { diffresult, dayText, status } = CalcMinusDater(task.deadline);
 
     return (
-        <div style={task.status == "Закрытая" ? { opacity: 0.5 } : { opacity: 1 }} className={isDeleting ? "bodyblock fxrow deleting" : "bodyblock fxrow"}>
+        <div style={task.status == "Закрытая" || task.status == "Отклонена модерацией" ? { opacity: 0.5 } : { opacity: 1 }} className={isDeleting ? "bodyblock fxrow deleting" : "bodyblock fxrow"}>
+            <Link style={{textDecoration: "none", color: "var(--variable-collection-black)"}} to={'/task/' + task.id}>
             <div className="taskblock">
                 <div className="taskblock-title">
                     {task.title}
@@ -101,6 +102,7 @@ export const Task = ({ task, trigger }) => {
                     <TaskStatus status={task.status}/>
                 </div>
             </div>
+            </Link>
             <div className="taskblock">
                 {myuser.id === taskOwner.id && task.status !== "На рассмотрении модерацией" ? (
                     <div className="tbtop">
@@ -115,7 +117,7 @@ export const Task = ({ task, trigger }) => {
                             </SimpleButton>
                         ) : (
                             <>
-                                {task.status === "В процессе" ? "Работает фрилансер" : "Заказ выполнил"}
+                                {task.status !== "Закрытая" ? "Работает фрилансер" : "Заказ выполнил"}
                                 <Link
                                     style={{ textDecoration: "none", color: "var(--variable-collection-accent)" }}
                                     to={`/profile/${taskFreelancer.id}`}
@@ -129,11 +131,13 @@ export const Task = ({ task, trigger }) => {
                     </div>
                 ) : task.status !== "На рассмотрении модерацией" ? (
                     <div className="tbtop">
-                        <div className="propblock">{taskOwner?.username}</div>
-                        <div className="propblock black">
-                            <Icon icon="star" color="gold"/>
-                            {taskOwner.profile?.rating || "0.0"}
-                        </div>
+                        <Link className={"bfxrow gap5"} style={{textDecoration: "none"}} to={'/profile/' + taskOwner.id}>
+                            <div className="propblock">{taskOwner?.username}</div>
+                            <div className="propblock black">
+                                <Icon icon="star" color="gold"/>
+                                {taskOwner.profile?.rating || "0.0"}
+                            </div>
+                        </Link>
                     </div>
                 ) : task.status === "На рассмотрении модерацией" && (
                     <div className="tbtop">
@@ -153,6 +157,7 @@ export const Task = ({ task, trigger }) => {
                             style={appcounter > 0 ? "white butcounter" : "white"}
                             data-count={appcounter}
                             onClick={() => navigate(`/task/${task.id}`)}
+                            icon='users'
                         >
                             Заявки
                         </SimpleButton>
