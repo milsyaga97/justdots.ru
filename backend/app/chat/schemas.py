@@ -2,11 +2,12 @@ from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
 
+class ChatMessageCreate(BaseModel):
+    message: str
+
 class ChatMessageResponse(BaseModel):
-    id: int
-    sender_id: int
-    receiver_id: int
     task_id: Optional[int]
+    owner_id: int
     message: str
     created_at: datetime
 
