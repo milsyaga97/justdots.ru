@@ -33,10 +33,12 @@ export const MyTasks = () => {
     }, [myuser]);
 
     const statusPriority = {
-        "Открытая": 1,
-        "На рассмотрении модерацией": 2,
-        "В процессе": 3,
-        "Закрытая": 4
+        "Спор": 1,
+        "На проверке заказчиком": 2,
+        "Открытая": 3,
+        "На рассмотрении модерацией": 4,
+        "В процессе": 5,
+        "Закрытая": 6
     }
     const sortedTasks = tasks.sort((a, b) => {
         return statusPriority[a.status] - statusPriority[b.status];
