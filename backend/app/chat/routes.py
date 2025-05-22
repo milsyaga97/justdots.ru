@@ -9,6 +9,8 @@ from ..auth.models import User
 from .models import ChatMessage
 from .schemas import ChatMessageResponse
 from ..notifications.utils import send_notification  
+from ..tasks.models import Task, TaskStatus
+from ..auth.models import UserType
 
 router = APIRouter()
 
@@ -32,7 +34,18 @@ async def websocket_chat_endpoint(websocket: WebSocket, user_id: int, db: Sessio
                 await websocket.send_json({"error": "Message and to_user_id are required"})
                 continue
 
-            if current_user.id != user_id:
+            # Проверяем, является ли пользователь модератором
+            if current_user.user_type == UserType.MODERATOR:
+                # Проверяем, что задача находится в статусе спора
+                task = db.query(Task).filter(Task.id == task_id).first()
+                if task and task.status == TaskStatus.DISPUTE:
+                    # Модератору разрешено отправлять сообщения в чат при споре
+                    pass
+                else:
+                    await websocket.send_json({"error": "Модератор может писать в чат только при разрешении спора"})
+                    continue
+            # Для обычных пользователей проверяем, что они являются участниками чата
+            elif current_user.id != user_id:
                 await websocket.send_json({"error": "Unauthorized"})
                 continue
 

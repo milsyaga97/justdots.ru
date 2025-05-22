@@ -199,6 +199,7 @@ async def get_task_by_id(
         freelancer_review = next((r for r in task.reviews if r.user_id == task.freelancer_id), None)
     elif current_user.user_type == UserType.FREELANCER and (
         task.status == TaskStatus.OPEN or
+        task.status == TaskStatus.DISPUTE or  # Разрешаем доступ при споре
         (task.status == TaskStatus.IN_PROGRESS and task.freelancer_id == current_user.id) or
         (task.status == TaskStatus.CLOSED and task.freelancer_id == current_user.id)
     ):
@@ -567,6 +568,17 @@ async def open_dispute(
             task_id=task.id
         )
 
+    # Уведомляем модераторов о новом споре
+    moderators = db.query(User).filter(User.user_type == UserType.MODERATOR).all()
+    for moderator in moderators:
+        await send_notification(
+            db=db,
+            user_id=moderator.id,
+            type="new_dispute",
+            message=f"Открыт новый спор по задаче '{task.title}'",
+            task_id=task.id
+        )
+
     return TaskResponse.model_validate(task)
 
 @router.post("/{task_id}/resolve-dispute", response_model=TaskResponse)
@@ -619,7 +631,8 @@ async def resolve_dispute(
         freelancer_profile.total_earned = float(freelancer_profile.total_earned or 0.0) + float(task.keeper)
         task.keeper = 0
 
-    task.status = TaskStatus.CLOSED
+    # Возвращаем задачу в статус "В процессе"
+    task.status = TaskStatus.IN_PROGRESS
     db.commit()
     db.refresh(task)
 
