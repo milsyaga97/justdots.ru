@@ -107,9 +107,9 @@ export const PublicTasks = () => {
             {tasks.length > 0 ? (
                 <>
                     {sortedTasks.map((task) => (
-                        <Link style={{textDecoration: "none"}} to={'/task/' + task.id}>
+
                             <Task key={task.id} task={task} trigger={isRefresh}/>
-                        </Link>
+
                     ))}
                 </>
             ) : "Новых заказов нет"}

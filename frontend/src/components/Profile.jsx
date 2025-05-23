@@ -138,6 +138,17 @@ const Profile = () => {
                                 <Icon icon="calendar"/>
                                 на justdots {daysDiff} {dayText}
                             </div>
+                            {profile.user_type === "customer" ? (
+                                <div className='simplepropblock'>
+                                    <Icon icon="ruble-sign"/>
+                                    выплачено {profile.profile.total_spent} рублей
+                                </div>
+                            ) : profile.user_type === "freelancer" ? (
+                                <div className='simplepropblock'>
+                                    <Icon icon="ruble-sign"/>
+                                    заработано {profile.profile.total_earned} рублей
+                                </div>
+                            ) : null}
                         </div>
                     </div>
                     <div className='profile-edit-container'>

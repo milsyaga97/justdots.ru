@@ -27,7 +27,9 @@ const MakeReview = ({task, taskowner, taskfreelancer, action}) => {
             console.log(error);
             notify({message: `Произошла ошибка при отправке отзыва по заказу #${task.id}: ${error?.message}`, type: "success", duration:4200});
         }
-        action();
+        finally {
+            action();
+        }
     }
 
     if(!myuser) return;

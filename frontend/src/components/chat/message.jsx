@@ -10,7 +10,7 @@ const Message = ({message, owner, freelancer}) => {
 
 
     if(!message)return;
-    if(myuser.id === message.owner_id)
+    if(myuser.id === message.sender_id)
         return(
             <div className="chatmymessage">
                 <div className="message-author-name">

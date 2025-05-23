@@ -882,7 +882,7 @@ form {
     /* outline: 1px solid red; */
     flex: 1;
     width: 600px;
-    gap: 5px;
+    gap: 15px;
 }
 
 .taskblock-insp {
@@ -902,6 +902,7 @@ form {
     display: flex;
     flex-direction: column;
     gap: 15px;
+    flex: 1;
 }
 
 .taskblock-price {
@@ -1277,8 +1278,8 @@ form {
 }
 
 .message-text{
-    background: var(--variable-collection-accent);
-    color: white;
+    background: var(--variable-collection-white);
+    color: var(--variable-collection-black);
     padding: 10px;
     word-break: break-word;
     height: min-content;
@@ -1291,8 +1292,8 @@ form {
 }
 
 .mymessage-text{
-    background: var(--variable-collection-white);
-    color: var(--variable-collection-black);
+    background: var(--variable-collection-accent);
+    color: white;
     padding: 10px;
     word-break: break-word;
     height: min-content;
@@ -1354,6 +1355,7 @@ form {
 .message-date{
     font-size: 12px;
     opacity: 0.5;
+    padding: 2px;
 }
 
 .chatmymessage{
@@ -1480,4 +1482,125 @@ form {
         flex-wrap: wrap;
         gap: 50px;
     }
+}
+
+.cc{
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    font-size: 24px;
+    color: gray;
+}
+
+.lhbon:hover{
+    cursor: pointer;
+    filter: brightness(80%);
+}
+
+.land{
+    height: 20%;
+}
+
+.landing{
+    position: fixed;
+    width: 100vw;
+    height: 100vh;
+}
+
+.landingbox{
+    width: 100%;
+    height: 80%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.landingcontainer{
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: row;
+}
+
+.landingsider{
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+    gap: 20px;
+}
+
+.landingtitle{
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.landingsemititle{
+    display: flex;
+    width: 100%;
+    font-size: 1.25vw;
+    border-radius: 0px 24px 24px 0px;
+    color: var(--variable-collection-black);
+}
+
+.landingtitle span{
+    font-family: Comfortaa;
+    font-size: 2vw;
+    font-weight: 800;
+    color: var(--variable-collection-black);
+}
+
+.landingsider-fwsvg{
+    position: relative;
+    z-index: 100;
+    flex: 1;
+    overflow: visible;
+    background-size: cover;
+    background: url("assets/landing1.svg") no-repeat;
+    display: flex;
+    justify-content: end;
+    align-items: end;
+}
+
+.landingtrimititle{
+    background: var(--variable-collection-blackprop);
+    color: white;
+    padding: 20px;
+    font-size: 18px;
+    font-weight: 400;
+    border-radius: 0px 100px 100px 0px;
+}
+
+.landsquare{
+    width: 100px;
+    height: 100px;
+    background: var(--variable-collection-accent);
+    position: relative;
+    top: -100px;
+    left: -100px;
+}
+
+.landingbuttoncontainer{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 50px;
+    gap: 5px;
+}
+
+.landingbuttoncontainer span{
+    font-size: 20px;
+    font-weight: 100;
+}
+
+.landbut{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 20px;
+    font-weight: 800;
+    gap: 10px;
 }

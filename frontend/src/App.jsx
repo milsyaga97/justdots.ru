@@ -17,6 +17,8 @@ import ModerateOrders from "./components/moderator/ModerateOrders.jsx";
 import Landing from "./components/Landing.jsx";
 import MyApplications from "./components/freelancer/MyApplications.jsx";
 import {useState} from "react";
+import Wallet from "./components/Wallet.jsx";
+import Arbitrage from "./components/moderator/Arbitrage.jsx";
 
 
 const App = () => {
@@ -62,6 +64,7 @@ const App = () => {
             <Route path="/register" element={<Register />} />
             <Route element={<Main />}>
               <Route path="/profile/:id" element={<Profile />} />
+              <Route path="/wallet" element={<Wallet/>}/>
               <Route element={<Customer />}>
                 <Route path="/create" element={<TaskCreator />} />
               </Route>
@@ -74,6 +77,7 @@ const App = () => {
             </Route>
             <Route element={<Moderator/>}>
               <Route path="/moderate" element={<ModerateOrders/>}></Route>
+              <Route path="/arbitrage" element={<Arbitrage/>}></Route>
             </Route>
           </Routes>
         </Router>

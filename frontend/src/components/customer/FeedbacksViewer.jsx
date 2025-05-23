@@ -6,12 +6,8 @@ const FeedbacksViewer = ({task, user, onConfirm}) => {
     const [apps, setApps] = useState(0);
     const [isClosed, setClosed] = useState(false);
 
-    const changeApps = () =>{
-        setApps(apps - 1);
-    }
-
     const closing = () => {
-        setClosed(true);
+        setClosed(prevState => !prevState);
         onConfirm();
     }
 
@@ -23,7 +19,7 @@ const FeedbacksViewer = ({task, user, onConfirm}) => {
             }
         };
         fetchAppCounter();
-    }, [task?.id]);
+    }, [task?.id, closing]);
 
     if(isClosed) return;
 
@@ -34,7 +30,7 @@ const FeedbacksViewer = ({task, user, onConfirm}) => {
             <div className="titleblock">
                 Заявки ({apps})
             </div>
-            <Feedback taskid={task.id} onAction={changeApps} closing={closing}></Feedback>
+            <Feedback taskid={task.id} closing={closing}></Feedback>
         </div>
     );
 };
