@@ -625,9 +625,9 @@ async def resolve_dispute(
     if winner == DisputeWinner.CUSTOMER:
         # Возвращаем деньги заказчику
         customer.balance = round_balance(customer.balance + task.keeper)
-        task.keeper = 0
         # Отменяем изменения в статистике
         customer_profile.total_spent = round_balance(float(customer_profile.total_spent or 0.0) - float(task.keeper))
+        task.keeper = 0
     else:
         # Переводим деньги фрилансеру
         freelancer.balance = round_balance(freelancer.balance + task.keeper)
@@ -636,8 +636,8 @@ async def resolve_dispute(
         freelancer_profile.total_earned = round_balance(float(freelancer_profile.total_earned or 0.0) + float(task.keeper))
         task.keeper = 0
 
-    # Возвращаем задачу в статус "В процессе"
-    task.status = TaskStatus.IN_PROGRESS
+    # Закрываем задачу
+    task.status = TaskStatus.CLOSED
     db.commit()
     db.refresh(task)
 

@@ -383,13 +383,41 @@ async def add_balance(
     db.commit()
     db.refresh(current_user)
 
+    # Получаем количество завершенных задач
+    if current_user.user_type == UserType.CUSTOMER:
+        completed_tasks_count = db.query(Task).filter(
+            Task.owner_id == current_user.id,
+            Task.status == TaskStatus.CLOSED.value
+        ).count()
+    else:
+        completed_tasks_count = db.query(Task).filter(
+            Task.freelancer_id == current_user.id,
+            Task.status == TaskStatus.CLOSED.value
+        ).count()
+
+    # Обрабатываем профиль пользователя
+    profile_data = current_user.profile
+    if profile_data:
+        profile_data.portfolio = current_user.portfolio if current_user.portfolio else []
+        if profile_data.total_spent is None:
+            profile_data.total_spent = 0.0
+        if profile_data.total_earned is None:
+            profile_data.total_earned = 0.0
+
     return UserResponse(
         id=current_user.id,
         username=current_user.username,
+        first_name=current_user.first_name,
+        last_name=current_user.last_name,
+        patronymic=current_user.patronymic,
         email=current_user.email,
-        user_type=current_user.user_type,
+        user_type=current_user.user_type.value,
         is_banned=current_user.is_banned,
-        ban_reason=current_user.ban_reason,
-        balance=current_user.balance,
-        created_at=current_user.created_at
+        ban_expires_at=current_user.ban_expires_at.isoformat() if current_user.ban_expires_at else None,
+        created_at=current_user.created_at.isoformat() if current_user.created_at else None,
+        profile=profile_data,
+        skills=current_user.skills,
+        completed_tasks_count=completed_tasks_count,
+        rating=current_user.rating,
+        balance=current_user.balance
     )
